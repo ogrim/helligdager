@@ -1,29 +1,28 @@
 (ns helligdager.core
   (:require [clj-time.core :as time]
             [clj-time.local :as l])
-  (:use [clojure.math.numeric-tower])
   (:import [org.joda.time ReadableDateTime]))
 
 (def ^:private ekspanderte-helligdager (atom nil))
 
 (defn- finn-påskedag [år]
-  (let [a (rem år 19)
-        b (floor (/ år 100))
-        c (rem år 100)
-        d (floor (/ b 4))
-        e (rem b 4)
-        f (floor (/ (+ b 8) 25))
-        g (floor (/ (+ (- b f) 1) 3))
-        h (rem (+ (- (- (+ (* 19 a) b) d) g) 15) 30)
-        i (floor (/ c 4))
-        k (rem c 4)
-        L (rem (- (- (+ (+ 32 (* 2 e)) (* 2 i)) h) k) 7)
-        m (floor (/ (+ (+ a (* 11 h)) (* 22 L)) 451))
-        måned (floor (/ (+ (- (+ h L) (* 7 m)) 114) 31))
-        dag (+ (rem (+ (- (+ h L) (* 7 m)) 114) 31) 1)]
+  (let [a (mod år 19)
+        b (quot år 100)
+        c (mod år 100)
+        d (quot b 4)
+        e (mod b 4)
+        f (quot (+ b 8) 25)
+        g (quot (+ (- b f) 1) 3)
+        h (mod (+ (- (- (+ (* 19 a) b) d) g) 15) 30)
+        i (quot c 4)
+        k (mod c 4)
+        L (mod (- (- (+ (+ 32 (* 2 e)) (* 2 i)) h) k) 7)
+        m (quot (+ (+ a (* 11 h)) (* 22 L)) 451)
+        måned (quot (+ (- (+ h L) (* 7 m)) 114) 31)
+        dag (+ (mod (+ (- (+ h L) (* 7 m)) 114) 31) 1)]
     (time/date-time år måned dag)))
 
-(defn- helligdager [år]
+(defn- finn-helligdager [år]
   (let [første-påskedag (finn-påskedag år)]
     [{:navn "Nyttårsdag" :dt (time/date-time år 1 1)}
      {:navn "Arbeidernes internasjonale kampdag" :dt (time/date-time år 5 1)}
@@ -43,15 +42,16 @@
            (= (time/day a) (time/day b)))
     true false))
 
-(defn- finn-helligdager [#^ReadableDateTime dato]
+(defn- parser [#^ReadableDateTime dato]
   (cond (or (nil? @ekspanderte-helligdager)
             (not= (-> @ekspanderte-helligdager first :dt time/year) (time/year dato)))
-        (do (reset! ekspanderte-helligdager (helligdager (time/year dato)))
-            (finn-helligdager dato))
+        (do (reset! ekspanderte-helligdager (finn-helligdager (time/year dato)))
+            (parser dato))
         :else (let [result (filter #(sammenlign-dato dato (:dt %)) @ekspanderte-helligdager)]
                 (if (empty? result) false result))))
 
-(defn helligdag?
-  ([] (finn-helligdager (l/local-now)))
-  ([#^ReadableDateTime dato] (finn-helligdager dato))
-  ([#^java.lang.Number YYYY MM DD] (finn-helligdager (time/date-time YYYY MM DD))))
+(defn helligdager
+  ([] (parser (l/local-now)))
+  ([år] (finn-helligdager år))
+  ([år måned] nil)
+  ([år måned dato] (parser (time/date-time år måned dato))))
