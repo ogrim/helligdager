@@ -37,6 +37,12 @@
      {:navn "første pinsedag" :dt (time/plus første-påskedag (time/days 49))}
      {:navn "andre pinsedag" :dt (time/plus første-påskedag (time/days 50))}]))
 
+(defn- sammenlign-dato [a b]
+  (if (and (= (time/year a) (time/year b))
+           (= (time/month a) (time/month b))
+           (= (time/day a) (time/day b)))
+    true false))
+
 (defn- finn-helligdager [#^ReadableDateTime dato]
   (cond (or (nil? @ekspanderte-helligdager)
             (not= (-> @ekspanderte-helligdager first :dt time/year) (time/year dato)))
@@ -44,12 +50,6 @@
             (finn-helligdager dato))
         :else (let [result (filter #(sammenlign-dato dato (:dt %)) @ekspanderte-helligdager)]
                 (if (empty? result) false result))))
-
-(defn- sammenlign-dato [a b]
-  (if (and (= (time/year a) (time/year b))
-           (= (time/month a) (time/month b))
-           (= (time/day a) (time/day b)))
-    true false))
 
 (defn helligdag?
   ([] (finn-helligdager (l/local-now)))
