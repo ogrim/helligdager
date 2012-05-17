@@ -92,7 +92,7 @@
           (filter #(= (time/month (:dt %)) måned))))
   ([type år måned dag]
      (let [dato (time/date-time år måned dag)]
-       (->> (finn-type år type)
+       (->> (finn-type type år)
             (filter #(sammenlign-dato (:dt %) dato))))))
 
 (defn- med-helligdag []
