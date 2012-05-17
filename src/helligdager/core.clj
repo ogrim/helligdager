@@ -3,7 +3,7 @@
             [clj-time.local :as l])
   (:import [org.joda.time ReadableDateTime]))
 
-(def ^:private ekspanderte-helligdager (atom nil))
+(def ^:private ekspanderte-dager (atom {}))
 
 (defn- finn-påskedag [år]
   (let [a (mod år 19)
@@ -22,13 +22,14 @@
         dag (+ (mod (+ (- (+ h L) (* 7 m)) 114) 31) 1)]
     (time/date-time år måned dag)))
 
+; http://www.lovdata.no/all/tl-19950224-012-0.html
 (defn- finn-helligdager [år]
   (let [første-påskedag (finn-påskedag år)]
     [{:navn "Nyttårsdag" :dt (time/date-time år 1 1)}
      {:navn "Arbeidernes internasjonale kampdag" :dt (time/date-time år 5 1)}
-     {:navn "Nasjonaldag" :dt (time/date-time år 5 17)}
-     {:navn "Første Juledag" :dt (time/date-time år 12 25)}
-     {:navn "Andre Juledag" :dt (time/date-time år 12 26)}
+     {:navn "Grunnlovsdagen" :dt (time/date-time år 5 17)}
+     {:navn "første juledag" :dt (time/date-time år 12 25)}
+     {:navn "andre juledag" :dt (time/date-time år 12 26)}
      {:navn "første påskedag" :dt første-påskedag}
      {:navn "skjærtorsdag" :dt (time/minus første-påskedag (time/days 3))}
      {:navn "langfredag" :dt (time/minus første-påskedag (time/days 2))}
@@ -36,22 +37,57 @@
      {:navn "første pinsedag" :dt (time/plus første-påskedag (time/days 49))}
      {:navn "andre pinsedag" :dt (time/plus første-påskedag (time/days 50))}]))
 
+; http://www.lovdata.no/for/sf/ud/xd-19271021-9733.html#4
+(defn- finn-flaggdager [år]
+  (let [første-påskedag (finn-påskedag år)]
+    [{:navn "Nyttårsdag" :dt (time/date-time år 1 1)}
+     {:navn "H.K.H. Prinsesse Ingrid Alexandras fødselsdag" :dt (time/date-time år 1 21)}
+     {:navn "Samefolkets dag" :dt (time/date-time år 2 6)}
+     {:navn "H.M. Kong Harald Vs fødselsdag" :dt (time/date-time år 2 21)}
+     {:navn "Arbeidernes internasjonale kampdag" :dt (time/date-time år 5 1)}
+     {:navn "Frigjøringsdagen 1945" :dt (time/date-time år 5 8)}
+     {:navn "Grunnlovsdagen" :dt (time/date-time år 5 17)}
+     {:navn "Unionsoppløsningen 1905" :dt (time/date-time år 6 7 )}
+     {:navn "H.M. Dronning Sonjas fødselsdag" :dt (time/date-time år 7 4)}
+     {:navn "H.K.H. Kronprins Haakon Magnus' fødselsdag" :dt (time/date-time år 7 20)}
+     {:navn "Olsokdagen" :dt (time/date-time år 7 29)}
+     {:navn "H.K.H. Kronprinsesse Mette-Marits fødselsdag" :dt (time/date-time år 8 19)}
+     {:navn "første juledag" :dt (time/date-time år 12 25)}
+     {:navn "første påskedag" :dt første-påskedag}
+     {:navn "første pinsedag" :dt (time/plus første-påskedag (time/days 49))}
+     ;{:navn "Dagen for Stortingsvalg" :dt "En mandag i september" ;(time/date-time år)}
+     ]))
+
 (defn- sammenlign-dato [a b]
   (if (and (= (time/year a) (time/year b))
            (= (time/month a) (time/month b))
            (= (time/day a) (time/day b)))
     true false))
 
-(defn- parser [#^ReadableDateTime dato]
-  (cond (or (nil? @ekspanderte-helligdager)
-            (not= (-> @ekspanderte-helligdager first :dt time/year) (time/year dato)))
-        (do (reset! ekspanderte-helligdager (finn-helligdager (time/year dato)))
-            (parser dato))
-        :else (let [result (filter #(sammenlign-dato dato (:dt %)) @ekspanderte-helligdager)]
-                (if (empty? result) false result))))
+(defn- dato->key [#^ReadableDateTime dato]
+  (-> dato time/year str keyword))
+
+(defn- parser [#^ReadableDateTime dato type]
+  (let [key (dato->key dato)
+        år (time/year dato)
+        dager (get (get @ekspanderte-dager key) type)
+        finn-fn (get {:helligdager finn-helligdager :flaggdager finn-flaggdager} type)]
+    (cond (nil? dager)
+          (do (->> (assoc (get @ekspanderte-dager key) type (finn-fn år))
+                   (assoc @ekspanderte-dager key)
+                   (reset! ekspanderte-dager))
+              (parser dato type))
+          :else (let [result (filter #(sammenlign-dato dato (:dt %)) dager)]
+                  (if (empty? result) false result)))))
+
+(defn flaggdager
+  ([] (parser (l/local-now) :flaggdager))
+  ([år] (finn-flaggdager år))
+  ([år måned] nil)
+  ([år måned dato] (parser (time/date-time år måned dato) :flaggdager)))
 
 (defn helligdager
-  ([] (parser (l/local-now)))
+  ([] (parser (l/local-now) :helligdager))
   ([år] (finn-helligdager år))
   ([år måned] nil)
-  ([år måned dato] (parser (time/date-time år måned dato))))
+  ([år måned dato] (parser (time/date-time år måned dato) :helligdager)))
