@@ -40,7 +40,6 @@
      {:navn "første pinsedag" :dt (time/plus første-påskedag (time/days 49))}
      {:navn "andre pinsedag" :dt (time/plus første-påskedag (time/days 50))}]))
 
-
 (defn- finn-flaggdager
   "http://www.lovdata.no/for/sf/ud/xd-19271021-9733.html#4"
   [år]
@@ -85,7 +84,9 @@
       dager)))
 
 (defn- parser
-  ([type] (finn-type type (time/year (l/local-now))))
+  ([type]
+     (let [dato (l/local-now)]
+       (parser type (time/year dato) (time/month dato) (time/day dato))))
   ([type år] (finn-type type år))
   ([type år måned]
      (->> (finn-type type år)
