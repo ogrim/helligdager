@@ -5,7 +5,9 @@
 
 (def ^:private ekspanderte-dager (atom {}))
 
-(defn- finn-påskedag [år]
+(defn- finn-påskedag
+  "Anonymous Gregorian algorithm"
+  [år]
   (let [a (mod år 19)
         b (quot år 100)
         c (mod år 100)
@@ -22,8 +24,9 @@
         dag (+ (mod (+ (- (+ h L) (* 7 m)) 114) 31) 1)]
     (time/date-time år måned dag)))
 
-; http://www.lovdata.no/all/tl-19950224-012-0.html
-(defn- finn-helligdager [år]
+(defn- finn-helligdager
+  "http://www.lovdata.no/all/tl-19950224-012-0.html#2"
+  [år]
   (let [første-påskedag (finn-påskedag år)]
     [{:navn "Nyttårsdag" :dt (time/date-time år 1 1)}
      {:navn "Arbeidernes internasjonale kampdag" :dt (time/date-time år 5 1)}
@@ -37,8 +40,10 @@
      {:navn "første pinsedag" :dt (time/plus første-påskedag (time/days 49))}
      {:navn "andre pinsedag" :dt (time/plus første-påskedag (time/days 50))}]))
 
-; http://www.lovdata.no/for/sf/ud/xd-19271021-9733.html#4
-(defn- finn-flaggdager [år]
+
+(defn- finn-flaggdager
+  "http://www.lovdata.no/for/sf/ud/xd-19271021-9733.html#4"
+  [år]
   (let [første-påskedag (finn-påskedag år)]
     [{:navn "Nyttårsdag" :dt (time/date-time år 1 1)}
      {:navn "H.K.H. Prinsesse Ingrid Alexandras fødselsdag" :dt (time/date-time år 1 21)}
