@@ -72,27 +72,43 @@
 (defn- dato->key [#^ReadableDateTime dato]
   (-> dato time/year str keyword))
 
-(defn- parser [#^ReadableDateTime dato type]
-  (let [key (dato->key dato)
-        år (time/year dato)
+(defn- finn-type [type år]
+  (let [key (-> år str keyword)
         dager (get (get @ekspanderte-dager key) type)
-        finn-fn (get {:helligdager finn-helligdager :flaggdager finn-flaggdager} type)]
-    (cond (nil? dager)
-          (do (->> (assoc (get @ekspanderte-dager key) type (finn-fn år))
-                   (assoc @ekspanderte-dager key)
-                   (reset! ekspanderte-dager))
-              (parser dato type))
-          :else (let [result (filter #(sammenlign-dato dato (:dt %)) dager)]
-                  (if (empty? result) false result)))))
+        finn-fn (get {:helligdager finn-helligdager
+                      :flaggdager finn-flaggdager} type)]
+    (if (empty? dager)
+      (do (->> (assoc (get @ekspanderte-dager key) type (finn-fn år))
+               (assoc @ekspanderte-dager key)
+               (reset! ekspanderte-dager))
+          (finn-type type år))
+      dager)))
+
+(defn- parser
+  ([type] (finn-type type (time/year (l/local-now))))
+  ([type år] (finn-type type år))
+  ([type år måned]
+     (->> (finn-type type år)
+          (filter #(= (time/month (:dt %)) måned))))
+  ([type år måned dag]
+     (let [dato (time/date-time år måned dag)]
+       (->> (finn-type år type)
+            (filter #(sammenlign-dato (:dt %) dato))))))
+
+(defn- med-helligdag []
+  (partial parser :helligdager))
+
+(defn- med-flaggdag []
+  (partial parser :flaggdager))
 
 (defn flaggdager
-  ([] (parser (l/local-now) :flaggdager))
-  ([år] (finn-flaggdager år))
-  ([år måned] nil)
-  ([år måned dato] (parser (time/date-time år måned dato) :flaggdager)))
+  ([] ((med-flaggdag)))
+  ([år] ((med-flaggdag) år))
+  ([år måned] ((med-flaggdag) år måned))
+  ([år måned dato] ((med-flaggdag) år måned dato)))
 
 (defn helligdager
-  ([] (parser (l/local-now) :helligdager))
-  ([år] (finn-helligdager år))
-  ([år måned] nil)
-  ([år måned dato] (parser (time/date-time år måned dato) :helligdager)))
+  ([] ((med-helligdag)))
+  ([år] ((med-helligdag) år))
+  ([år måned] ((med-helligdag) år måned))
+  ([år måned dato] ((med-helligdag) år måned dato)))
